@@ -6,8 +6,8 @@ INSERT INTO Doctor
 (doctorSIN, name, homeAddress, emailAddress, phoneNumber,
  dateOfBirth, specialty, yearsOfExperience)
 VALUES
-('111111111', 'Dr. Jean-Francois Morin', '3755 Chemin de la Cote Sainte-Catherine',
- 'j-f_morin@mcgill.ca', '514-340-8222',
+('111111111', 'Dr. John Doe', '3755 Chemin de la Cote Sainte-Catherine',
+ 'j_doe@mcgill.ca', '514-340-8222',
  '1980-05-15', 'Cardiac Surgery', 20);
 
 
