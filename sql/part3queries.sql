@@ -4,8 +4,8 @@
 -- a) List the name of patients who are patients of at least three different doctors
 
 SELECT P.name
-FROM Patient Part
-JOIN Precription R
+FROM Patient P
+JOIN Prescription R
     ON P.patientSIN = R.patientSIN
 GROUP BY P.patientSIN, P.name
 HAVING COUNT(DISTINCT R.doctorSIN) >= 3;
@@ -37,19 +37,37 @@ WHERE S.pharmacyID IS NULL;
 -- number and the total number of contracts of the pharmaceutical company. Results should
 -- be displayed sorted in descending order by number of contracts.
 
-SELECT PC.pharmCompanyName, PC.companyAddress
+SELECT
+    PC.pharmCompanyName,
+    PC.websiteAddress,
+    PC.emailAddress,
+    PC.companyAddress,
+    PC.phoneNumber,
+    COUNT(*) AS totalContracts
 FROM PharmaceuticalCompany PC
-JOIN Contract c
+JOIN Contract C
     ON PC.pharmCompanyName = C.pharmCompanyName
-GROUP BY PC.pharmCompanyName, PC.companyAddress
-HAVING COUNT (DISTINCT C.pharmacyID) >= 50
-ORDER BY COUNT (DISTINCT C.pharmacyID) DESC;
+GROUP BY
+    PC.pharmCompanyName,
+    PC.websiteAddress,
+    PC.emailAddress,
+    PC.companyAddress,
+    PC.phoneNumber
+HAVING COUNT(DISTINCT C.pharmacyID) >= 50
+ORDER BY totalContracts DESC;
 
 
 -- e) List the name of all patients who do not have insurance. Details include SIN, name, Medicare card number, 
 -- addresses, email address, phone number and date of birth. Results should be displayed sorted in ascending order by name. 
 
-SELECT P.name
+SELECT
+    P.patientSIN,
+    P.name,
+    P.medicareCardNumber,
+    P.homeAddress,
+    P.emailAddress,
+    P.phoneNumber,
+    P.dateOfBirth
 FROM Patient P
 WHERE P.insurance IS NULL
 ORDER BY P.name ASC;
