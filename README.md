@@ -1,154 +1,164 @@
 # Pharmacy Chain Database Management System
 
-**COMP 353 — Databases | Assignment 2**  
+**COMP 353 — Databases | Assignment 2 | Concordia University**  
 **Author:** Joshua Visario  
-**Institution:** Concordia University  
-**Database:** MySQL  
-**Project type:** Relational database design and SQL implementation
+**Technology:** MySQL 8, SQL, Visual Studio Code / MySQL Shell, MySQL Workbench, diagrams.net (draw.io)
 
-## Overview
+A relational database project that models a pharmacy chain's patients, medical professionals, drugs, prescriptions, sales, and pharmaceutical supply contracts. The project progresses from an **entity–relationship (ER) diagram** to a **10-table relational schema**, then demonstrates schema creation, data insertion, referential integrity, deletion, and analytical SQL queries.
 
-This academic project designs and implements a relational database for a chain of pharmacies. It models patients, doctors, pharmacists, pharmacies, pharmaceutical companies, drugs, prescriptions, purchases, and supply contracts.
+> **Academic project:** This is a database-design exercise, not a production pharmacy application or electronic health record (EHR). Use fictional data only. The original coursework may contain personally identifying example values; replace those before publishing any SQL files or database exports.
 
-The goal is to translate real-world requirements into an **entity–relationship (ER) model**, convert that model to a **relational schema**, implement it using **MySQL**, and answer business questions with SQL queries.
+## Table of contents
 
-**This is an educational database prototype, not a production pharmacy or electronic health record system.** All demonstration records should be fictional; do not load real patient or staff information.
+- [Project structure](#project-structure)
+- [Database design](#database-design)
+- [Key design decisions](#key-design-decisions)
+- [Getting started](#getting-started)
+- [Running and testing Part III](#running-and-testing-part-iii)
+- [Assignment deliverables](#assignment-deliverables)
+- [Constraints and limitations](#constraints-and-limitations)
+- [Troubleshooting](#troubleshooting)
+- [What I learned](#what-i-learned)
 
-## Project objectives
+## Project structure
 
-- Identify entities, attributes, primary keys, and relationships from business requirements.
-- Model cardinalities, weak entities, and associative entities using an ER diagram.
-- Convert the conceptual design into relational tables with primary and foreign keys.
-- Preserve referential integrity, including composite-key relationships.
-- Populate tables with sample records, then demonstrate record and table deletion.
-- Query the database using joins, grouping, aggregate functions, and null handling.
-- Explain how the schema would change if all pharmacies charged the same price for a given drug.
+The SQL files are organized by purpose, so creating tables, inserting data, querying, and deleting data can be performed independently.
 
-## Tools and technologies
+```text
+COMP353-Pharmacy-Database/
+├── README.md
+└── sql/
+    ├── schema.sql               # Part II(a): create database and 10 tables
+    ├── insert_data.sql          # Part II(b): original sample data and final FK setup
+    ├── delete_data.sql          # Part II(c): delete original sample rows
+    ├── drop_tables.sql          # Part II(d): drop the tables
+    ├── part3_queries.sql        # Part III: five analytical queries
+    ├── part3_testData.sql       # Extra records to exercise the Part III queries
+    ├── view_current_data.sql    # Read-only inspection of tables and row counts
+    └── pharmacy_database.sql    # Additional SQL file; check for overlapping setup
+```
 
-- **MySQL** — SQL database and referential constraints
-- **MySQL Shell for VS Code / MySQL-compatible client** — query execution
-- **Visual Studio Code** — SQL editing
-- **draw.io (diagrams.net)** — ER diagram development
-- **Git and GitHub** — source control and project documentation
+> **Note:** `pharmacy_database.sql` also appears in the project folder. Its execution role depends on its current contents; use the task-specific files above for the workflow described here, and avoid executing overlapping schema or insert scripts twice. ER-diagram and assignment PDF files can be kept separately with course documentation.
 
 ## Database design
 
-The implementation uses **10 tables**:
+The relational implementation contains **10 tables**.
 
 | Table | Purpose | Primary key |
 | --- | --- | --- |
-| `Doctor` | Stores physicians and their specialties | `doctorSIN` |
-| `Patient` | Stores patient details and primary physicians | `patientSIN` |
-| `Pharmacist` | Stores pharmacists and their employing pharmacies | `pharmacistSIN` |
-| `Pharmacy` | Stores pharmacy locations and their main pharmacists | `pharmacyID` |
-| `PharmaceuticalCompany` | Stores pharmaceutical company information | `pharmCompanyName` |
-| `Drug` | Stores drugs produced by pharmaceutical companies | (`tradeName`, `pharmCompanyName`) |
-| `Prescription` | Associates a doctor, patient, and drug with date and quantity | `prescriptionID` |
-| `Contract` | Records contracts between pharmacies and companies | `contractID` |
-| `Sells` | Records drugs offered at each pharmacy and their prices | (`pharmacyID`, `tradeName`, `pharmCompanyName`) |
-| `PrescriptionPurchase` | Records the pharmacy and pharmacist involved in a purchase | `purchaseID` |
+| `Doctor` | Physician identity, specialty, and experience | `doctorSIN` |
+| `Patient` | Patient details, insurance, and primary physician | `patientSIN` |
+| `Pharmacist` | Pharmacist details and employing pharmacy | `pharmacistSIN` |
+| `Pharmacy` | Pharmacy location and designated main pharmacist | `pharmacyID` |
+| `PharmaceuticalCompany` | Manufacturer contact information | `pharmCompanyName` |
+| `Drug` | Drug trade name and formula, identified within a company | (`tradeName`, `pharmCompanyName`) |
+| `Prescription` | Doctor–patient–drug prescriptions, date, and quantity | `prescriptionID` |
+| `Contract` | Pharmacy–company contracts and current supervisor | `contractID` |
+| `Sells` | Which pharmacies sell which drugs, at what price | (`pharmacyID`, `tradeName`, `pharmCompanyName`) |
+| `PrescriptionPurchase` | Prescription purchases and approving pharmacist | `purchaseID` |
 
-### Main relationships
+### Relationships
 
-| Relationship | Meaning | Cardinality |
-| --- | --- | --- |
-| `hasPrimaryPhysician` | Each patient has one primary physician | Patient → Doctor: N:1 |
-| `Produces` | A company produces multiple drugs; each drug belongs to one company | Drug → Company: N:1 |
-| `Sells` | Pharmacies sell drugs, potentially at different prices | Pharmacy ↔ Drug: M:N |
-| `Employs` | Each pharmacist works at one pharmacy in this model | Pharmacist → Pharmacy: N:1 |
-| `hasMainPharmacist` | Each pharmacy designates one of its employees as its main pharmacist | Pharmacy ↔ Pharmacist: 1:1 designation |
-| `ForPatient` / `IssuedBy` / `ForDrug` | A prescription references one patient, one prescribing doctor, and one drug | Prescription → each entity: N:1 |
-| `withCompany` / `atPharmacy` | Each contract involves one company and one pharmacy | Contract → each entity: N:1 |
-| `Supervises` | One pharmacist supervises each contract at a time | Contract → Pharmacist: N:1 |
-| `Fulfills` | Each purchase references one prescription | Purchase → Prescription: N:1 |
-| `purchasedAt` / `ApprovedBy` | Each purchase occurs at one pharmacy and is approved by one pharmacist | Purchase → each entity: N:1 |
+| Relationship | Cardinality / rule |
+| --- | --- |
+| Patient → primary Doctor | Many-to-one; each patient has one primary physician |
+| Drug → PharmaceuticalCompany (`Produces`) | Many-to-one; a drug is identified within its producing company |
+| Pharmacy ↔ Drug (`Sells`) | Many-to-many, with a price per pharmacy–drug pair |
+| Pharmacist → Pharmacy (`Employs`) | Many-to-one in this design; each pharmacist works at one pharmacy |
+| Pharmacy ↔ main Pharmacist | One-to-one designation under the employment assumption; main pharmacist works at that pharmacy |
+| Prescription → Patient, Doctor, Drug | Many-to-one from each prescription to each referenced entity |
+| Contract → Pharmacy, PharmaceuticalCompany, Pharmacist | Many-to-one from each contract to its pharmacy, company, and current supervisor |
+| PrescriptionPurchase → Prescription, Pharmacy, Pharmacist | Many-to-one; an approving pharmacist must work at the purchase pharmacy |
 
-`Prescription` and `Contract` are modeled as **associative entities** because they represent relationships with their own identifiers and attributes. `PrescriptionPurchase` captures purchases separately from prescriptions.
+### ER model
 
-### Weak entity: Drug
+- **Weak entity:** `Drug`, whose key combines its `tradeName` (partial identifier) with the identifying pharmaceutical company.
+- **Associative entities:** `Prescription` (linking Doctor, Patient, and Drug) and `Contract` (linking Pharmacy and PharmaceuticalCompany).
+- **Relationship with attributes:** `Sells`, whose `price` belongs to a pharmacy–drug offering in the original requirements.
+- **Separate purchase records:** `PrescriptionPurchase` records a purchase independently of the prescription's definition.
 
-`Drug` is modeled as a weak entity identified by its **trade name together with the producing pharmaceutical company**:
+The ER diagram and full assignment report document the conceptual model and the decisions behind this relational implementation.
+
+## Key design decisions
+
+### 1. Weak `Drug` entity and composite keys
+
+The same drug trade name can be associated with different manufacturers. The unique drug identifier therefore uses both attributes:
 
 ```sql
 PRIMARY KEY (tradeName, pharmCompanyName)
 ```
 
-Its composite primary key is referenced by `Prescription` and `Sells`. A foreign key links each drug to `PharmaceuticalCompany`.
+The composite key is also referenced by `Prescription` and `Sells`.
 
-### Integrity constraints and design decisions
+### 2. One retained prescription per doctor–patient–drug combination
 
-- **Primary physician:** `Patient.primaryDoctorSIN` is `NOT NULL` and references `Doctor`.
-- **Latest prescription per combination:** `Prescription` has a unique constraint on (`doctorSIN`, `patientSIN`, `tradeName`, `pharmCompanyName`). This prevents two stored prescriptions for the same combination; retaining the *latest* entry requires application logic or an explicit update/upsert operation.
-- **Main pharmacist:** `Pharmacy.mainPharmacistSIN` must ultimately be non-null and must refer to a pharmacist employed by that same pharmacy. A composite foreign key (`mainPharmacistSIN`, `pharmacyID`) enforces the workplace match.
-- **Purchase approval:** `PrescriptionPurchase` uses a composite foreign key (`approvedBySIN`, `pharmacyID`) to require the approving pharmacist to work at the purchasing pharmacy.
-- **Contract supervision:** Each `Contract` has a non-null `supervisorSIN` referencing `Pharmacist`. The current supervisor is stored; reassignment history is not.
-- **Pricing:** In the original design, `price` belongs to `Sells` because the price can differ between pharmacies.
+```sql
+UNIQUE (doctorSIN, patientSIN, tradeName, pharmCompanyName)
+```
 
-**Important implementation detail:** `Pharmacy` and `Pharmacist` reference one another. To initialize the sample records, `mainPharmacistSIN` is temporarily nullable. The script inserts a pharmacy, inserts its pharmacist, assigns the main pharmacist, and then adds `NOT NULL` and the composite foreign key. The required constraint is enforced **after this setup sequence**, not by the initial `CREATE TABLE Pharmacy` statement alone.
+This prevents storing multiple rows for an identical combination. **It does not automatically retain the latest prescription:** a later prescription must update the existing row using `UPDATE` or an insert-or-update operation.
 
-### Rules not completely enforced by the SQL schema
+### 3. Main pharmacist and circular foreign keys
 
-The submitted design also describes business rules that ordinary foreign keys do not fully enforce, including:
+`Pharmacy` identifies its main pharmacist, while `Pharmacist` identifies the pharmacy where the person works. These references create a **circular dependency** during initial setup.
 
-- Every doctor must have at least one patient.
-- Every pharmacy must sell several drugs.
-- A prescription purchase should only be completed for a drug sold at that pharmacy (if this is required by the business workflow).
-- Only the newest prescription is retained when a doctor prescribes the same drug to the same patient again; the unique constraint prevents duplicates but does not automatically choose the newer record.
+The sample-data initialization follows this order:
 
-These would need further business logic, validation, triggers, or a redesigned workflow in a production system.
+1. Create `Pharmacy` with `mainPharmacistSIN` temporarily nullable.
+2. Create `Pharmacist` with its foreign key to `Pharmacy`.
+3. Insert a pharmacy, then insert its pharmacist.
+4. Update the pharmacy to assign that pharmacist as the main pharmacist.
+5. Change `mainPharmacistSIN` to `NOT NULL` and add the composite foreign key `(mainPharmacistSIN, pharmacyID)` referencing `Pharmacist(pharmacistSIN, pharmacyID)`.
 
-## Assignment structure
+The final composite foreign key ensures the selected main pharmacist **works at the same pharmacy**. The complete constraint is established by `insert_data.sql`, not by the initial `CREATE TABLE Pharmacy` statement alone.
 
-### Part I — Conceptual and logical design
+### 4. Approving pharmacists
 
-1. Identify entities, attributes, and relationship cardinalities.
-2. Create the ER diagram, including `Drug` as a weak entity.
-3. Convert the ER model into the 10-table relational schema.
-4. Explain the consequences of a hypothetical fixed-drug-price requirement.
+`PrescriptionPurchase` uses a composite foreign key on `(approvedBySIN, pharmacyID)` to ensure that the approving pharmacist is employed at the pharmacy processing the purchase.
 
-**Fixed-price design variation:** If a given drug must cost the same at every pharmacy, move `price` from `Sells` to `Drug`:
+### 5. Contract supervision
+
+Each contract stores one non-null `supervisorSIN` referencing `Pharmacist`. The database stores the **current** supervisor; historical supervisor assignments are not tracked.
+
+### 6. Hypothetical fixed drug prices (Part I, Question 4)
+
+The original design permits pharmacies to charge different prices for the same drug, so `price` belongs in `Sells`. If all pharmacies must charge the same price for a drug, the conceptual modification is:
 
 ```text
 Original: Drug(tradeName, pharmCompanyName, formula)
           Sells(pharmacyID, tradeName, pharmCompanyName, price)
 
-Modified: Drug(tradeName, pharmCompanyName, formula, price)
+Revised:  Drug(tradeName, pharmCompanyName, formula, price)
           Sells(pharmacyID, tradeName, pharmCompanyName)
 ```
 
-The provided Part II implementation uses the **original variable-price design**; the fixed-price design is an analysis of a proposed change.
+**The implemented SQL retains the original variable-price design.** The fixed-price version is a proposed schema change for the assignment, not a second implementation.
 
-### Part II — MySQL implementation
+## Getting started
 
-| Question | Work performed |
-| --- | --- |
-| (a) | Create the database and its 10 tables using `CREATE TABLE`, keys, and constraints. |
-| (b) | Insert at least one demonstration record into each table, including the staged main-pharmacist setup. |
-| (c) | Delete the inserted sample records with `DELETE FROM` in foreign-key-safe order. |
-| (d) | Remove the tables with `DROP TABLE`, dropping dependent tables first. |
+### Prerequisites
 
-**Warning:** The assignment script includes destructive statements such as `DROP DATABASE`, `DELETE`, and `DROP TABLE`. Do **not** run the entire script every time you want to test a query. Doing so may remove your records or tables. Execute the appropriate section only, or keep separate setup, insert, cleanup, and query scripts.
+- MySQL Server 8.x and a working local connection.
+- MySQL Workbench **or** the MySQL Shell extension for Visual Studio Code.
+- The SQL scripts in the `sql/` directory.
 
-## Running the project
+### Recommended execution order
 
-### Requirements
+Run these against a **disposable coursework database**. `schema.sql` starts by dropping and recreating `pharmacy_database`, which **permanently removes its existing tables and rows**.
 
-1. Install MySQL Server and connect using a MySQL-compatible SQL client, such as MySQL Shell for VS Code or MySQL Workbench.
-2. Open the assignment's SQL file in your editor.
-3. Work through the script in the following sequence, **using a fresh disposable database** when running the full setup:
+| Step | Script | Purpose |
+| --- | --- | --- |
+| 1 | `sql/schema.sql` | Create `pharmacy_database` and its 10 empty tables. |
+| 2 | `sql/insert_data.sql` | Insert original sample records and finalize main-pharmacist constraints. |
+| 3 | `sql/view_current_data.sql` | Inspect the populated tables without changing any data. |
+| 4 | `sql/part3_queries.sql` | Run the five Part III queries on the available data. |
+| 5 (optional) | `sql/part3_testData.sql` | Add a larger fictional dataset so each Part III query has meaningful results. |
+| 6 (optional) | `sql/part3_queries.sql` | Re-run the queries on that expanded dataset. |
 
-   **A. Create the schema:** Execute Part II(a), including the database creation and all 10 `CREATE TABLE` statements.
+**Do not run** `delete_data.sql` or `drop_tables.sql` before analyzing the data. They demonstrate separate assignment requirements and remove rows or tables.
 
-   **B. Populate the schema:** Execute Part II(b), including the pharmacy/pharmacist initialization and subsequent constraint additions.
-
-   **C. Verify the records:** Run the `SELECT` and `SHOW CREATE TABLE` checks after the inserts.
-
-   **D. Run analytical queries:** Execute Part III queries while the sample data remains present.
-
-   **E. Clean up only when needed:** Execute Part II(c) to delete sample records or Part II(d) to drop the tables.
-
-To inspect the currently selected database and tables, run:
+In MySQL Workbench or VS Code, select `pharmacy_database` as the active database, or execute:
 
 ```sql
 USE pharmacy_database;
@@ -156,133 +166,103 @@ SELECT DATABASE();
 SHOW TABLES;
 ```
 
-To inspect the structure and records of a particular table:
+After setting up all tables, `SHOW TABLES` should return **10 tables**. To verify that the main-pharmacist constraints were added, use:
 
 ```sql
-DESCRIBE Prescription;
 SHOW CREATE TABLE Pharmacy;
-SELECT * FROM Prescription;
+SHOW CREATE TABLE Pharmacist;
 ```
 
-**Re-running the script:** Running `CREATE TABLE` for a table that already exists causes MySQL error 1050. Re-inserting the same primary key can cause a duplicate-key error. Resetting the database is destructive, so use it only if you intend to start over.
+### Viewing current data
 
-## Part III — Analytical SQL queries
+`view_current_data.sql` is a **read-only** script. It provides table row counts and `SELECT *` outputs for all 10 tables. It shows the *live contents* of your MySQL database; it is **not** a saved snapshot or a database export.
 
-The assignment asks five questions using the relational schema from Part I.
+## Running and testing Part III
 
-### (a) Patients associated with at least three different doctors
+`part3_queries.sql` contains the five queries required by the assignment.
 
-```sql
-SELECT P.name
-FROM Patient P
-JOIN Prescription R
-    ON P.patientSIN = R.patientSIN
-GROUP BY P.patientSIN, P.name
-HAVING COUNT(DISTINCT R.doctorSIN) >= 3;
-```
+| Question | Goal | Main SQL concepts |
+| --- | --- | --- |
+| **(a)** | Find patients associated with at least three distinct prescribing doctors | `JOIN`, `GROUP BY`, `HAVING`, `COUNT(DISTINCT)` |
+| **(b)** | Find doctors who are also patients and identify their primary physicians | Two joins to `Doctor`, table aliases |
+| **(c)** | Find drugs that no pharmacy sells | Composite `LEFT JOIN`, `IS NULL` |
+| **(d)** | List companies contracting with at least 50 distinct pharmacies, sorted by total number of contracts | `JOIN`, `COUNT(*)`, `COUNT(DISTINCT)`, `HAVING`, `ORDER BY` |
+| **(e)** | List uninsured patients with specified contact details, ordered by name | `IS NULL`, `ORDER BY` |
 
-*Interpretation:* The query counts distinct doctors appearing on a patient's prescriptions. A primary physician who has not issued a recorded prescription is not counted.
+**Interpretation of (a):** The submitted query uses recorded prescriptions as evidence of a patient–doctor relationship. A primary physician who has not issued a recorded prescription is not counted by this particular query.
 
-### (b) Doctors who are also patients and their treating doctors
+### Expanded test dataset
 
-```sql
-SELECT D1.name AS DoctorPatient,
-       D2.name AS TreatingDoctor
-FROM Doctor D1
-JOIN Patient P
-    ON D1.doctorSIN = P.patientSIN
-JOIN Doctor D2
-    ON P.primaryDoctorSIN = D2.doctorSIN;
-```
+The original Part II(b) insert script provides a small sample—normally one record per table—and some valid Part III queries return **zero rows** on that dataset. The optional `part3_testData.sql` adds extra fictional records to test all five queries, including **49 additional pharmacies**, their pharmacists, and contracts with **50 distinct pharmacies**.
 
-### (c) Drugs not sold by any pharmacy
+The expanded data was used to demonstrate the following expected results:
 
-```sql
-SELECT D.tradeName, D.pharmCompanyName
-FROM Drug D
-LEFT JOIN Sells S
-    ON D.tradeName = S.tradeName
-   AND D.pharmCompanyName = S.pharmCompanyName
-WHERE S.pharmacyID IS NULL;
-```
+| Query | Expected demonstration result |
+| --- | --- |
+| **(a)** | Original patient appears with prescriptions from three distinct doctors |
+| **(b)** | Dr. Test Chen → Dr. John Doe |
+| **(c)** | `TestUnsoldDrug` — Johnson & Johnson |
+| **(d)** | Johnson & Johnson: **51 contracts**; Test Pharma B: **50 contracts** |
+| **(e)** | Aaron Sample, then Nora Sample (ascending name order) |
 
-### (d) Companies with contracts involving at least 50 pharmacies
+**Verified example:** Query (d) was run against the expanded data and returned 51 and 50 contracts in descending order. The other entries are expected results of the test setup, not a claim that every query was independently verified.
 
-```sql
-SELECT
-    PC.pharmCompanyName,
-    PC.websiteAddress,
-    PC.emailAddress,
-    PC.companyAddress,
-    PC.phoneNumber,
-    COUNT(*) AS totalContracts
-FROM PharmaceuticalCompany PC
-JOIN Contract C
-    ON PC.pharmCompanyName = C.pharmCompanyName
-GROUP BY
-    PC.pharmCompanyName,
-    PC.websiteAddress,
-    PC.emailAddress,
-    PC.companyAddress,
-    PC.phoneNumber
-HAVING COUNT(DISTINCT C.pharmacyID) >= 50
-ORDER BY totalContracts DESC;
-```
+> **Important test-data caution:** `part3_testData.sql` is **not safe to re-run unchanged**: its `INSERT` statements use fixed primary keys, and it temporarily alters the circular Pharmacy–Pharmacist constraint. Run it on a fresh database after steps 1–2, and allow the script to finish restoring the `NOT NULL` and foreign-key constraints. If an execution stops midway, inspect the tables and constraints before resuming; do not simply run the full script again.
 
-The `HAVING` condition counts **distinct pharmacies**, while `totalContracts` counts **contract rows**.
+## Assignment deliverables
 
-### (e) Patients without insurance
+| Assignment part | Deliverable | Location |
+| --- | --- | --- |
+| **Part I** | Conceptual ER diagram, cardinalities, relational mapping, and fixed-price variation | Assignment report / ER diagram document |
+| **Part II(a)** | `CREATE TABLE` statements and constraints | `sql/schema.sql` |
+| **Part II(b)** | Original example inserts | `sql/insert_data.sql` |
+| **Part II(c)** | Delete the rows inserted in Part II(b) | `sql/delete_data.sql` |
+| **Part II(d)** | Drop the tables created in Part II(a) | `sql/drop_tables.sql` |
+| **Part III** | Five SQL queries | `sql/part3_queries.sql` |
+| **Supplementary** | Expanded query-test data and live-table inspection | `sql/part3_testData.sql`, `sql/view_current_data.sql` |
 
-```sql
-SELECT
-    P.patientSIN,
-    P.name,
-    P.medicareCardNumber,
-    P.homeAddress,
-    P.emailAddress,
-    P.phoneNumber,
-    P.dateOfBirth
-FROM Patient P
-WHERE P.insurance IS NULL
-ORDER BY P.name ASC;
-```
+`delete_data.sql` is written for the **original sample records**, not necessarily for every row added by the expanded Part III test dataset. Use a fresh disposable database for cleanup demonstrations after extensive testing.
 
-## Testing and expected behavior
+## Constraints and limitations
 
-The minimum sample dataset includes one record in each table. This verifies basic inserts and foreign-key references, but it does **not** necessarily produce matches for every analytical query:
+The project enforces primary keys, selected `NOT NULL` constraints, foreign keys, composite keys, and prescription uniqueness. Some requirements are documented but **not fully enforced** by the SQL schema alone:
 
-- Query (a) requires at least three distinct prescribing doctors for the same patient.
-- Query (b) requires a person with the same SIN in `Doctor` and `Patient`.
-- Query (c) requires a drug with no row in `Sells`.
-- Query (d) requires a company contracting with 50 or more distinct pharmacies.
-- Query (e) requires a patient whose `insurance` value is `NULL`.
+- Every doctor has at least one patient.
+- Every pharmacy sells several drugs.
+- A newer prescription replaces the previous stored prescription for the same doctor–patient–drug combination.
+- A drug purchased at a pharmacy is necessarily listed in that pharmacy's `Sells` records.
+- The database does not preserve past contract-supervisor assignments.
 
-Therefore, an **empty result is not necessarily an incorrect query**. Additional fictional test records can be used to demonstrate the matching cases. Keep the submitted minimum dataset and any larger test dataset clearly separated.
+These would require additional validation, application logic, procedures/triggers, or schema extensions in a more complete system. The project also does not provide a production UI, authentication, auditing, clinical safeguards, or healthcare privacy controls.
 
-## Project limitations
+## Troubleshooting
 
-This is a course assignment rather than a deployable clinical system. It does not include a user interface, authentication/authorization, auditing, encryption strategy, transaction processing for real dispensing workflows, or regulatory compliance controls. The schema's business rules and demonstrations should not be treated as evidence that it is suitable for storing real medical information.
+| Error / symptom | Likely cause | Suggested action |
+| --- | --- | --- |
+| **1046: No database selected** | The connection has no default schema | Execute `USE pharmacy_database;`. |
+| **1050: Table already exists** | Schema creation was executed again | Do not re-run `schema.sql` unless intentionally resetting. |
+| **1062: Duplicate entry** | An `INSERT` with the same primary key already succeeded | Inspect existing records and resume after the completed statement. |
+| **1146: Table doesn't exist** | Wrong active database or schema not created | Run `SELECT DATABASE();` and `SHOW TABLES;`. |
+| **1452: Cannot add or update a child row** | A referenced parent row is missing | Insert parent records (for example Doctor, Patient, Drug) first. |
+| **1048: Column cannot be null** | `mainPharmacistSIN` is `NOT NULL` during staged test inserts | Use the documented nullable-column initialization sequence, then restore constraints. |
+| **1136: Column count doesn't match value count** | Different number of columns and values in an `INSERT` | Check each row in the `VALUES` clause. |
+| **Correct query returns zero rows** | Sample data does not meet the query's conditions | Run the optional expanded test data on a fresh instance. |
 
-## Repository organization
+A successful SQL statement generally **remains applied** even if a later statement in the script fails. Check database state before retrying an interrupted script.
 
-A suggested GitHub layout is:
+## What I learned
 
-```text
-COMP353-Pharmacy-Database/
-├── README.md
-├── sql/
-│   └── pharmacy_database.sql
-└── docs/
-    ├── assignment.pdf
-    └── er_diagram.pdf
-```
+This assignment provided hands-on practice with:
 
-Adjust the paths above to match the actual files in your repository; the assignment PDF and diagram are documentation artifacts, not files automatically created by the SQL script.
+- Translating business requirements into an ER diagram and relational schema.
+- Identifying weak and associative entities.
+- Designing primary keys, composite keys, foreign keys, and uniqueness constraints.
+- Managing circular referential dependencies during initialization.
+- Writing DDL (`CREATE`, `ALTER`, `DROP`) and DML (`INSERT`, `SELECT`, `UPDATE`, `DELETE`).
+- Writing multi-table joins, anti-joins, aggregations, and filtered queries.
+- Building test data that validates query behavior rather than merely populating tables.
 
-## Learning outcomes
+---
 
-Through this project, I practiced translating requirements into an ER model, identifying strong and weak entities, handling associative entities, using composite primary and foreign keys, managing circular references, and writing SQL for creation, insertion, deletion, joins, aggregation, and filtering.
-
-## Academic context
-
-Developed for **COMP 353 — Databases** at Concordia University as an academic assignment. The schema, queries, and examples are for learning and demonstration purposes.
+**Course:** COMP 353 — Databases, Concordia University  
+**Purpose:** Academic learning and demonstration. Not intended for real clinical deployment.

@@ -1,3 +1,5 @@
+-- COMPLETE CODE IN 1 SQL File 
+
 -- COMP 353 -- Pharmacy Database
 -- PART II 
 -- a) TABLES Creation

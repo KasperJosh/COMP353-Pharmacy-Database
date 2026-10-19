@@ -1,6 +1,8 @@
 -- -----------------------------------------------------------------------------------
 -- b) Providing one INSERT statement that will populate the table with data
 
+USE pharmacy_database;
+
 -- DOCTOR
 INSERT INTO Doctor
 (doctorSIN, name, homeAddress, emailAddress, phoneNumber,
